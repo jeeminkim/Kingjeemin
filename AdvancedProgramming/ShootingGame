@@ -1,0 +1,639 @@
+#include<stdio.h>
+#include<math.h>
+#include<time.h> 
+#include<string.h>
+#include<Windows.h>  //소리를추가하기위한라이브러리
+#include<conio.h>    //getch함수를위한라이브러리
+#include<mmsystem.h> //피아노소리
+
+#pragma comment(lib,"winmm.lib") // 프로젝트setting 부분에winmm.lib를추가하여배경음을나오게함
+#define SetColor(back_color, font_color) SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), back_color*16+font_color);
+#define UP 72 //키보드입력부분에대해아스키코드로전처리
+#define DOWN 80
+#define LEFT 75
+#define RIGHT 77
+#define ESC 27
+#define ENTER 13
+#define MAX 15 // 똥생성조절
+#define Speed 80 // 게임스피드조절
+#define ITEM_MAX 2 // 아이템생성조절
+#define INDEX 30
+#define DO 262 //피아노소리전처리
+#define RE 294
+#define MI 330
+#define PA 349    
+#define SOL 392
+#define RA 440
+#define SI 449
+#define _DO 524
+
+//새롭게정의한함수
+void gotoxy(int x, int y);        // 좌표이동
+int Showmain();                   // 메인화면
+void Showstart();                 // 게임시작로딩화면
+int Howto();                      // 게임방법설명
+void Remove_Cursor();             // 커서반짝임제거
+int Game(int *Grade, int *score, FILE *file); // 게임을구성하는함수
+void map();                       // 게임맵
+void ShowGrade();                 // Grade up 출력
+void Pause();                     // 일시정지
+int Ranking();                    //랭킹표시
+void swap(int *);                 //점수내림차순으로정리
+
+int x, y;
+
+typedef struct Player{
+int x;
+int y;
+}Player; // 사용자의좌표(x,y)를멤버로가진구조체선언
+
+typedef struct dong{
+int x;
+int y;
+}dong; // 장애물(똥)의좌표(x,y)를멤버로가진구조체선언
+
+typedef struct Rank{
+char name[20];
+int score;
+}Rank; // 랭킹에등록할이름및점수를멤버로가진구조체선언
+
+enum {     //글씨색지정
+BLACK,
+D_BLUE,
+D_GREEN,
+D_SKYBLUE,
+D_RED,
+D_VIOLET,
+D_YELLOW,
+GRAY,
+D_GRAY,
+BLUE,
+GREEN,
+SKYBLUE,
+RED,
+VIOLET,
+YELLOW,
+WHITE,
+};
+
+int main()//main 함수
+{
+int a = 1, b = 0, c = 3, d = 0;
+int *Grade = &a;
+int *score = &b;
+int *heart = &c;
+int *hp = &d;
+Remove_Cursor(); // 커서반짝임제거
+
+if (Showmain() == 1)
+{
+while (1)
+{
+map();
+if (Game(Grade, score, heart, hp) == 1)
+{
+break //만족할경우
+}
+else
+continue//계속진행함
+}
+}
+else
+return 0;
+}
+
+int Showmain()
+{
+sndPlaySoundA("대기", SND_ASYNC | SND_NODEFAULT);
+int a = 1, next = 0, handle = 0;
+
+SetColor(BLACK, VIOLET);//SetColor 함수는SetColor(배경색,폰트색)으로사용하도록define 하였다.
+gotoxy(13, 5);  printf("□□□□□\n");
+gotoxy(13, 6);  printf("□ □                         □\n");
+gotoxy(13, 7);  printf("□□□□□               □□□□□ □  □□□□□\n");
+gotoxy(13, 8);  printf("    □       □□□□□ □   □    □      □  □\n");
+gotoxy(13, 9);  printf("□□□□□     □ □   □ □ □  □□  □    □\n");
+gotoxy(13, 10); printf("    □       □□□□□ □   □    □  □      □\n");
+gotoxy(13, 11); printf("  □ □                 □          □           □\n");
+gotoxy(13, 12); printf("    □\n");
+SetColor(WHITE, BLACK);
+gotoxy(33, 16); printf("1.게임하기");
+SetColor(BLACK, WHITE);
+gotoxy(33, 17); printf("2.게임방법");
+gotoxy(33, 18); printf("3.랭킹보기");
+gotoxy(33, 19); printf("4.게임종료");
+while (1) //메뉴화면에서방향키를움직이게되면커서현재부분에대한색깔이바뀌게하는부분
+{
+handle = getch();
+if (a == 1 && handle == DOWN){
+SetColor(BLACK, WHITE);
+gotoxy(33, 16); printf("1.게임하기");
+SetColor(WHITE, BLACK);
+gotoxy(33, 17); printf("2.게임방법");
+SetColor(BLACK, WHITE);
+gotoxy(33, 18); printf("3.랭킹보기");
+gotoxy(33, 19); printf("4.게임종료");
+a = 2;
+continue
+}
+if (a == 2 && handle == DOWN){
+SetColor(BLACK, WHITE);
+gotoxy(33, 16); printf("1.게임하기");
+gotoxy(33, 17); printf("2.게임방법");
+SetColor(WHITE, BLACK);
+gotoxy(33, 18); printf("3.랭킹보기");
+SetColor(BLACK, WHITE);
+gotoxy(33, 19); printf("4.게임종료");
+a = 3;
+continue
+}
+
+if (a == 3 && handle == DOWN){
+SetColor(BLACK, WHITE);
+gotoxy(33, 16); printf("1.게임하기");
+gotoxy(33, 17); printf("2.게임방법");
+gotoxy(33, 18); printf("3.랭킹보기");
+SetColor(WHITE, BLACK);
+gotoxy(33, 19); printf("4.게임종료");
+a = 4;
+continue
+}
+if (a == 4 && handle == UP){
+SetColor(BLACK, WHITE);
+gotoxy(33, 16); printf("1.게임하기");
+gotoxy(33, 17); printf("2.게임방법");
+SetColor(WHITE, BLACK);
+gotoxy(33, 18); printf("3.랭킹보기");
+SetColor(BLACK, WHITE);
+gotoxy(33, 19); printf("4.게임종료");
+a = 3;
+continue
+}
+if (a == 3 && handle == UP){
+SetColor(BLACK, WHITE);
+gotoxy(33, 16); printf("1.게임하기");
+SetColor(WHITE, BLACK);
+gotoxy(33, 17); printf("2.게임방법");
+SetColor(BLACK, WHITE);
+gotoxy(33, 18); printf("3.랭킹보기");
+gotoxy(33, 19); printf("4.게임종료");
+a = 2;
+continue
+}
+if (a == 2 && handle == UP){
+SetColor(WHITE, BLACK);
+gotoxy(33, 16); printf("1.게임하기");
+SetColor(BLACK, WHITE);
+gotoxy(33, 17); printf("2.게임방법");
+gotoxy(33, 18); printf("3.랭킹보기");
+gotoxy(33, 19); printf("4.게임종료");
+a = 1;
+continue
+}
+if (a == 4 && handle == ENTER){
+SetColor(BLACK, WHITE);
+gotoxy(33, 19); printf("4.게임종료");
+gotoxy(33, 20); printf("게임이종료되었습니다.");
+gotoxy(33, 21);
+exit(0);
+}
+if (a == 1 && handle == ENTER)
+{
+Showstart();
+return 1;
+}
+if (a == 2 && handle == ENTER)
+{
+if (Howto() == 1)
+return 1;
+else
+return 2;
+}
+if (a == 3 && handle == ENTER)
+{
+if (Ranking() == 1)
+return 1;
+else
+return 2;
+}
+}
+}
+
+void Showstart()
+{
+sndPlaySoundA("시작", SND_ASYNC | SND_NODEFAULT); //게임시작시음악, "시작"이라는파일을실행함
+
+system("cls");  //화면에남아있는내용을지우게됨== 화면클리어
+gotoxy(15, 10); printf("  □□   □□□□    □□    □□□  □□□□\n");
+gotoxy(15, 11); printf("□   □    □     □   □  □  □    □   \n");
+gotoxy(15, 12); printf("  □        □     □□□□  □  □    □   \n");
+gotoxy(15, 13); printf("    □      □     □   □  □□□     □   \n");
+gotoxy(15, 14); printf("□   □    □     □   □  □  □    □   \n");
+gotoxy(15, 15); printf("  □□      □     □   □  □   □   □   □\n");
+Sleep(5000);
+system("cls");
+}
+
+int Howto()
+{
+int handle;
+
+system("cls"); //화면에남아있는내용을지우게됨== 화면클리어
+gotoxy(8, 7); printf("떨어지는똥[邕]을'상,하,좌,우'로움직여피하는게임입니다.\n");
+gotoxy(8, 8); printf("똥[邕]에맞으면Game Over.\n");
+gotoxy(8, 9); printf("똥을피할때마다Score가상승하며,\n");
+gotoxy(8, 10); printf("일정Score가되면Grade이상승하면서똥[邕]의속도가빨라집니다.\n");
+gotoxy(8, 12); printf("Tip) 아이템[하트]을10개먹으면생명이플러스됩니다.\n");
+gotoxy(8, 13); printf("게임중ESC버튼을누르면일시정지가됩니다.\n");
+gotoxy(8, 14); printf("GOOD LUCK ^-^\n");
+gotoxy(8, 17); printf("게임시작-> Press 'ENTER' Key");
+gotoxy(8, 18); printf("뒤로가기-> Press 'ESC' Key");
+handle = getch();
+if (handle == ENTER) // ENTER를누를경우
+{
+system("cls");
+Showstart();
+return 1;
+}
+else if (handle == ESC) //ESC를누를경우
+{
+system("cls");
+if (Showmain() == 2)
+return 2;
+}
+else                    //다른키를눌렀을경우
+Howto();
+}
+
+void gotoxy(int x, int y) // gotoxy 함수의원형
+{
+COORD pos = { x, y };
+SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+}
+
+void Remove_Cursor() // 커서깜빡임제거함수원형
+{
+CONSOLE_CURSOR_INFO cur;
+GetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cur);
+cur.bVisible = 0;
+SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cur);
+}
+
+int Game(int *Grade, int *score, int *heart, int *hp)
+{
+Remove_Cursor(); //커서제거
+sndPlaySoundA("메인배경", SND_ASYNC | SND_NODEFAULT); //게임플레이시음악, "메인배경"이라는파일을실행함
+int handle = 0;
+int i;
+int speed = 100;
+char name[20];
+int a = 0;
+FILE *file;
+
+dong dong_down[MAX];
+dong item[ITEM_MAX];
+Player player;
+
+file = fopen("Recent_Game.txt", "a");
+player.x = 15;   //사용자초기좌표
+player.y = 21;
+srand(time(0));  //랜덤함수생성
+
+for (i = 0; i<MAX; i++) //초기똥생성반복문
+{
+dong_down[i].x = ((rand() % 36) / 2) * 2 + 3; //똥의X좌표
+dong_down[i].y = (rand() % 8) / 2 * 2 + 1;    //똥의Y좌표
+}
+
+for (i = 0; i<ITEM_MAX; i++) //초기하트생성반복문
+{
+item[i].x = (((rand() % 36) / 2) * 2) + 3; //하트X좌표
+item[i].y = (rand() % 8) / 2 * 2 + 2;      //하트Y좌표
+for (int j = 0; j < MAX; j++)
+{
+if ((abs(dong_down[j].x - item[i].x) < 2) && (abs(dong_down[j].y - item[i].y) <= 2)) //똥과하트의좌표가겹쳐생성될경우다시생성하게하는조건문
+{
+item[i].x = (((rand() % 36) / 2) * 2) + 3;
+item[i].y = (rand() % 8) / 2 * 2 + 2;
+}
+}
+}
+
+gotoxy(player.x, player.y); printf("人");
+while (1)
+{
+if (Speed - 15 * ((*Grade) - 1) < 0)  //사용자가성취한난이도(등급)에따라똥의속도조절
+Sleep(1);
+else
+Sleep(Speed - 15 * ((*Grade) - 1));
+SetColor(BLACK, RED);
+gotoxy(50, 3); printf("생명(♥) : %d", *heart);
+gotoxy(50, 5); printf("생명조각: %d", *hp);
+SetColor(BLACK, YELLOW);
+gotoxy(50, 18); printf("Grade : %d", *Grade);
+SetColor(BLACK, WHITE);
+gotoxy(50, 20); printf("Score : %d", (*score) * 100);
+
+if ((*score) * 100 > 10000 * (*Grade) * 2)  //등급상승의기준
+{
+(*Grade)++;
+ShowGrade();
+Sleep(1500);
+system("cls");
+return 0;
+}ㅏ
+while (kbhit())
+{
+handle = getch();
+switch (handle)  //사용자가이동할수있게하는방법미리설정된키에의해좌표가재정의되고멈추기도함
+{
+case UP:
+player.y--;
+break
+case DOWN:
+player.y++;
+break
+case LEFT:
+player.x--;
+break
+case RIGHT:
+player.x++;
+break
+case ESC:
+Pause();
+break
+}
+if (player.x <= 2 || player.y<2) //사용자이동범위고정조건문
+{
+if (player.x <= 2)
+player.x = 2;
+if (player.y<2)
+player.y = 2;
+} 
+if (player.x>38)                 //사용자이동범위고정조건문
+player.x = 38;
+if (player.y>21)
+player.y = 21;
+gotoxy(player.x, player.y); printf("人");
+gotoxy(player.x, player.y + 1); printf("  "); //잔상지우기
+gotoxy(player.x, player.y - 1); printf("  "); 
+}
+
+for (i = 0; i<ITEM_MAX; i++)
+{
+gotoxy(player.x, player.y); printf("人");
+item[i].y++;
+if (item[i].y > 21) //하트가끝까지다내려온경우
+{
+item[i].y = 21;
+gotoxy(item[i].x, 21); printf(" "); //화면에서삭제
+item[i].x = (((rand() % 36) / 2) * 2) + 3; //다시하트생성
+item[i].y = (rand() % 6) / 2 * 2 + 2;
+for (int j = 0; j < MAX; j++)
+{
+if ((abs(dong_down[j].x - item[i].x) < 2) && (abs(dong_down[j].y - item[i].y) <= 2))//똥과하트의좌표가겹치면다시생성
+{
+item[i].x = (((rand() % 36) / 2) * 2) + 3;
+item[i].y = (rand() % 8) / 2 * 2 + 2;
+}
+}
+
+}
+else
+{
+SetColor(BLACK, RED);
+gotoxy(item[i].x, item[i].y); printf("♥"); //하트를화면에출력
+gotoxy(item[i].x, item[i].y - 1); printf(" "); //잔상제거
+SetColor(BLACK, WHITE);
+}
+
+if ((abs(item[i].x - player.x) <2) && (item[i].y == player.y)) //하트와사용자가만나는경우출력되게함
+{
+(*hp)++;
+*score = (*score) + 10;
+gotoxy(50, 10); printf("HP 획득!^-^\n");
+Beep(RE, 500);
+gotoxy(50, 10); printf("                        ");
+if (*hp == 10)     //하트를10개먹은경우
+{
+(*heart)++;    //생명1추가
+*hp = 0;
+gotoxy(50, 10); printf("생명+1 \^^/\n");
+Beep(RE, 500);
+gotoxy(50, 10); printf("                        ");
+}
+gotoxy(item[i].x, item[i].y); printf(" "); //하트출력제거
+item[i].x = (((rand() % 36) / 2) * 2) + 3; //다시아이템생성
+item[i].y = (rand() % 6) / 2 * 2 + 2;
+for (int j = 0; j < MAX; j++)
+{
+if ((abs(dong_down[j].x - item[i].x) < 2) && (abs(dong_down[j].y - item[i].y) <= 2))//똥과하트의좌표가겹치면다시생성
+{
+item[i].x = (((rand() % 36) / 2) * 2) + 3;
+item[i].y = (rand() % 8) / 2 * 2 + 2;
+}
+}
+
+}
+}
+
+for (i = 0; i<MAX; i++)
+{
+dong_down[i].y++;
+if (dong_down[i].y > 21)  //똥이끝까지내려온경우
+{
+(*score)++;           //점수추가
+dong_down[i].y = 21;
+gotoxy(dong_down[i].x, 21); printf(" "); //화면에서제거
+dong_down[i].x = ((rand() % 36) / 2) * 2 + 3; //다시똥생성
+dong_down[i].y = (rand() % 6) / 2 * 2 + 1;
+for (int j = 0; j < ITEM_MAX; j++)
+{
+if ((abs(dong_down[i].x - item[j].x) < 2) && (abs(dong_down[i].y - item[j].y) <= 2))//똥과하트의좌표가겹치면다시생성
+{
+dong_down[i].x = ((rand() % 36) / 2) * 2 + 3;
+dong_down[i].y = (rand() % 6) / 2 * 2 + 1;
+}
+}
+}
+else
+{
+gotoxy(dong_down[i].x, dong_down[i].y); printf("邕");    //똥표시
+gotoxy(dong_down[i].x, dong_down[i].y - 1); printf(" "); //잔상지우기
+}
+if (((abs(player.x - dong_down[i].x) < 2) && (abs(player.y - dong_down[i].y) < 1))) //사용자와똥이만나는경우
+{
+(*heart)--;             //생명1 손실
+gotoxy(50, 10); printf("생명-1\n");
+Beep(RE, 500);
+gotoxy(50, 10); printf("                        ");
+Sleep(250);
+system("cls");
+if (*heart == 0) // Game Over
+{
+sndPlaySoundA("죽음", SND_ASYNC | SND_NODEFAULT);
+while (1)
+{
+system("cls");
+
+SetColor(BLACK, RED);
+gotoxy(31, 10); printf("Game Over!");
+SetColor(BLACK, WHITE);
+gotoxy(30, 11); printf("Score : %d", (*score) * 100);
+gotoxy(19, 15);
+printf("랭킹에등록할이름을입력하세요: ");
+scanf("%s", name);
+break
+}
+fprintf(file, "%s %d ", name, (*score) * 100);
+fclose(file);
+gotoxy(10, 19);
+printf("한번더게임하시려면'ENTER'를, 뒤로가시려면'ESC'를누르세요");
+handle = getch();
+lsm:
+if (handle == ENTER)//enter를누를경우다시게임시작
+{
+system("cls");
+fflush(stdin);
+*score = 0, *Grade = 1, *heart = 3; *hp=0;
+Showstart();
+return 2;
+}
+else if (handle == ESC) //esc를누르게되면메인을보여주게됨
+{
+system("cls");
+fflush(stdin);
+*score = 0, *Grade = 1, *heart = 3; *hp = 0;
+Showmain();
+return 2;
+}
+else
+goto lsm; //ENTER와ESC 이외의버튼을누른경우
+}
+return 0;
+}
+}
+}
+}
+
+void map() //맵을만들게되는함수원형
+{
+int i = 0;
+
+SetColor(BLACK, D_GRAY);
+for (i = 0; i <= 40; i = i + 2)
+{
+gotoxy(i, 0); printf("▩");
+}
+for (i = 0; i<24; i++)
+{
+gotoxy(0, i); printf("▩");
+}
+for (i = 0; i<24; i++)
+{
+gotoxy(40, i); printf("▩");
+}
+for (i = 0; i <= 40; i = i + 2)
+{
+gotoxy(i, 23); printf("▩");
+}
+SetColor(BLACK, WHITE);
+
+}
+
+void ShowGrade() //난이도가올라갈경우출력되는메세지에관한함수
+{
+Beep(SI, 500);
+gotoxy(1, 10); printf(" □□□□ □□□□□       □     □□□□  □□□□ □     □□□□□\n");
+gotoxy(1, 11); printf("□        □      □     □□    □    □ □       □     □□    □\n");
+gotoxy(1, 12); printf("□        □□□□□     □ □   □     □□       □     □□    □\n");
+gotoxy(1, 13); printf("□ □□□□□          □□□□  □     □□□□□ □     □□□□□\n");
+gotoxy(1, 14); printf("□   □  □ □       □     □ □     □□       □     □□\n");
+gotoxy(1, 15); printf("□   □  □    □   □       □□    □ □        □   □ □\n");
+gotoxy(1, 16); printf("  □□□  □      □□         □□□□□  □□□□   □□□  □\n");
+}
+
+void Pause() //일시정지를구현하는함수
+{
+int handle = 0;
+
+while (handle != ESC)
+{
+gotoxy(50, 12); printf(">> 일시정지중<<\n");
+gotoxy(50, 14); printf("'ESC' -> 게임재개\n");
+handle = getch();
+}
+gotoxy(50, 12); printf("                   ");
+gotoxy(50, 14); printf("                   ");
+}
+
+int Ranking() //랭킹함수구현파일입출력
+{
+int i, j;
+int rank_num = 1;
+int *temp;
+int arr[INDEX];
+char handle = 0;
+Rank rank[INDEX] = {
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 },
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 },
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 },
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 },
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 },
+{ " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 }, { " ", 0 } };
+
+FILE *fp = fopen("Recent_Game.txt", "r");
+
+for (i = 0; i<INDEX; i++)
+fscanf(fp, "%s %d", rank[i].name, &rank[i].score);
+fclose(fp);
+
+for (i = 0; i<INDEX; i++)arr[i] = rank[i].score;
+
+swap(arr);//점수를내림차순으로정리
+
+system("cls");
+gotoxy(5, 2); printf("'0'점은명예의전당에오르지않습니다.^-^ ");
+gotoxy(5, 3); printf("최대5등까지명예의전당에오를수있습니다.");
+gotoxy(21, 5); printf("->> 명예의전당<<-\n");
+gotoxy(5, 7); printf("%7s%16s%22s\n\n", "Ranking", "Name", "Score");
+for (i = 0; i<INDEX; i++)
+{
+for (j = 0; j<INDEX; j++)
+{
+if ((arr[i] == rank[j].score) && arr[i] != 0)
+printf("%7d위%19s%22d\n\n", rank_num++, rank[j].name, rank[j].score);
+}
+if (rank_num == 6)
+break
+}
+gotoxy(5, 22); printf("뒤로가기-> Press 'ESC' Key");
+handle = getch();
+if (handle == ESC)
+{
+system("cls");
+if (Showmain() == 2)
+return 2;
+}
+else
+Ranking();
+}
+
+void swap(int *arr)//내림차순으로sorting==buble sorting
+{
+int i, j;
+int temp;
+
+for (i = 0; i <= INDEX - 1; i++)
+{
+for (j = INDEX - 2; j >= 0; j--)
+{
+if (arr[j] < arr[j + 1])
+{
+temp = arr[j];
+arr[j] = arr[j + 1];
+arr[j + 1] = temp;
+}
+}
+}
+}
