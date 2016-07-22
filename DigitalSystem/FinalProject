@@ -1,0 +1,298 @@
+module project(KEY,HEX7,HEX6,HEX5,HEX4,HEX3,HEX2,HEX1,HEX0);
+ input [1:0]KEY;
+ output [6:0]HEX7,HEX6,HEX5,HEX4,HEX3,HEX2,HEX1,HEX0;
+ wire [31:0]address;
+ wire [1:0]mode;
+ wire [3:0]reg_con1,reg_con2,reg_con3;
+ wire [15:0]addr;
+ wire [7:0]data;
+ wire rw;
+ 
+ control_block cb(.clk(KEY[0]), .reset(KEY[1]), .mode(mode), .rw(rw), .reg_con1(reg_con1), .reg_con2(reg_con2), .reg_con3(reg_con3), .addr(addr));
+ execution_block ex(.clk(KEY[0]), .reset(KEY[1]), .mode(mode), .rw(rw), .reg_con1(reg_con1), .reg_con2(reg_con2), .reg_con3(reg_con3), .addr(addr), .data(data));
+ memoryA m1(.clk(KEY[0]), .reset(KEY[1]), .rw(rw), .addr(addr), .data(data));
+ memoryB m2(.clk(KEY[0]), .reset(KEY[1]), .rw(rw), .addr(addr), .data(data));
+ display_block db(.clk(KEY[0]), .reset(KEY[1]), .rw(rw), .addr(addr), .data(data), .HEX7(HEX7), .HEX6(HEX6), .HEX5(HEX5), .HEX4(HEX4), .HEX3(HEX3), .HEX2(HEX2), .HEX1(HEX1), .HEX0(HEX0));
+
+endmodule
+
+module AGU(clk,reset,out);
+ input clk,reset;
+ output [5:0]out;
+ reg [5:0]addr_inst=6'b0;
+ 
+ always@(posedge clk or negedge reset) begin
+  if(!reset) addr_inst = 6'b0;
+  else addr_inst = addr_inst + 6'b1;
+ end
+
+ assign out = addr_inst;
+endmodule
+
+module controller(clk,reset,address,mode,reg_con1,reg_con2,reg_con3,addr);
+ input clk,reset;
+ input [31:0]address;
+ output [1:0]mode;
+ output [3:0]reg_con1,reg_con2,reg_con3;
+ output [15:0]addr;	
+ 
+  assign mode = address[31:30];
+  assign reg_con1 = address[27:24]; 
+  assign reg_con2 = address[23:20];
+  assign reg_con3 = address[19:16];
+  assign addr = address[15:0];
+  
+endmodule
+
+module control_block(clk,reset,mode,rw,reg_con1,reg_con2,reg_con3,addr);
+ input clk,reset;
+ output [1:0]mode;
+ output [3:0]reg_con1,reg_con2,reg_con3;
+ output [15:0]addr;
+ output reg rw=1'b0;
+ 
+ wire [5:0]AGU_out;
+ wire [31:0]CONT_in;
+ 
+ AGU agu(.clk(clk), .reset(reset), .out(AGU_out));
+ Instruction_memory ins(.address(AGU_out), .clock(clk), .data(), .wren(1'b0), .q(CONT_in));
+ controller con(.clk(clk), .reset(reset), .address(CONT_in), .mode(mode), .reg_con1(reg_con1), .reg_con2(reg_con2), .reg_con3(reg_con3), .addr(addr));
+ 
+ always@(posedge clk or negedge reset) begin
+   if(!reset) rw =1'b0;
+   else if(mode==2'b01) rw = 1'b0;
+	else if(mode==2'b11 && addr[7]==1'b0) rw = 1'b1;
+	else rw = 1'b0;
+	end
+	endmodule
+
+module memoryA(clk,reset,rw,addr,data);
+ input clk,reset;
+ input [15:0]addr;
+ output [7:0]data;
+ wire [7:0]temp;
+ input rw;
+ wire [3:0]chip_sel;
+ 
+ assign chip_sel = addr[15:12];
+ 
+ ramA a(.address(addr[4:0]), .clock(clk), .data(), .wren(1'b0), .q(temp));
+ 
+ assign data = (rw==1'b0 && chip_sel==4'b0001)? temp : 8'bz;
+
+ endmodule
+
+module memoryB(clk,reset,rw,addr,data);
+ input clk,reset;
+ input [15:0]addr;
+ output [7:0]data;
+ wire [7:0]temp;
+ input rw;
+ wire [3:0]chip_sel;
+ 
+ assign chip_sel = addr[15:12];
+ 
+ ramB b(.address(addr[4:0]), .clock(clk), .data(), .wren(1'b0), .q(temp));
+ 
+ assign data = (rw==1'b0 && chip_sel==4'b0010)? temp : 8'bz;
+ 
+endmodule
+
+module execution_block(clk,reset,mode,rw,reg_con1,reg_con2,reg_con3,addr,data);
+ input clk,reset;
+ input [1:0]mode;
+ input rw;
+ input [3:0]reg_con1,reg_con2,reg_con3;
+ input [15:0]addr;
+ inout [7:0]data;
+ wire [7:0]temp_data;
+ reg [7:0]sub_in1,sub_in2;
+ wire [7:0]sub_result;
+ reg [7:0]reg_A,reg_B,reg_C,reg_D,reg_E,reg_F,reg_G,reg_H;
+ 
+ 
+ assign data = (mode==2'b11)? sub_result : 8'bz;
+ assign temp_data = (mode==2'b01)? data : 8'bz;
+ 
+ subtractor_8bit sub(.in1(sub_in1), .in2(sub_in2), .result(sub_result));
+
+ always@(posedge clk or negedge reset) begin
+  if(!reset) begin 
+   reg_A = 8'h0;
+   reg_B = 8'h0;
+   reg_C = 8'h0;
+   reg_D = 8'h0;
+   reg_E = 8'h0;
+   reg_F = 8'h0;
+   reg_G = 8'h0;
+   reg_H = 8'h0;
+  end 
+  
+  else if(mode==2'b01) begin
+   case(reg_con3)  
+    1 : reg_A = temp_data;
+    2 : reg_B = temp_data;
+    3 : reg_C = temp_data;
+    4 : reg_D = temp_data;
+    5 : reg_E = temp_data;
+    6 : reg_F = temp_data;
+    7 : reg_G = temp_data;
+    8 : reg_H = temp_data;
+	 default : ;
+   endcase
+  end
+  
+  else if(mode==2'b11 && addr[7]==1'b0) begin
+   case(reg_con1)
+	 1 : sub_in1 = reg_A;
+	 2 : sub_in1 = reg_B;
+	 3 : sub_in1 = reg_C;
+	 4 : sub_in1 = reg_D;
+    5 : sub_in1 = reg_E;
+	 6 : sub_in1 = reg_F;
+	 7 : sub_in1 = reg_G;
+	 8 : sub_in1 = reg_H;
+	 default : ;
+	endcase 
+	 
+	case(reg_con2)
+	 1 : sub_in2 = reg_A;
+ 	 2 : sub_in2 = reg_B;
+	 3 : sub_in2 = reg_C;
+ 	 4 : sub_in2 = reg_D;
+	 5 : sub_in2 = reg_E;
+ 	 6 : sub_in2 = reg_F;
+	 7 : sub_in2 = reg_G;
+ 	 8 : sub_in2 = reg_H;
+	 default : ;
+	endcase
+	
+	case(reg_con3)  
+    1 : reg_A = sub_result;
+    2 : reg_B = sub_result;
+    3 : reg_C = sub_result;
+    4 : reg_D = sub_result;
+    5 : reg_E = sub_result;
+    6 : reg_F = sub_result;
+    7 : reg_G = sub_result;
+    8 : reg_H = sub_result;
+	 default : ;
+	endcase	
+   end 
+  end
+endmodule
+
+module display_block(clk,reset,rw,addr,data,HEX7,HEX6,HEX5,HEX4,HEX3,HEX2,HEX1,HEX0);
+ input clk,reset;
+ input [15:0]addr;
+ input [7:0]data;
+ input rw;
+ output [6:0]HEX7,HEX6,HEX5,HEX4,HEX3,HEX2,HEX1,HEX0;
+ reg [7:0]reg1,reg2,reg3,reg4;
+ wire [3:0]chip_sel;
+  
+ assign chip_sel = addr[15:12];
+ 
+ always@(posedge clk or negedge reset) begin
+  if(!reset) begin
+   reg4 = 8'h0; 
+   reg3 = 8'h0;
+   reg2 = 8'h0;
+   reg1 = 8'h0;
+  end
+  else if(rw==1'b1 && chip_sel==4'b0011)
+   case(addr[4:0])
+    4'h0 :  reg1 = data;
+    4'h1 :  reg2 = data;
+    4'h2 :  reg3 = data;
+    4'h3 :  reg4 = data;
+    default :;
+  endcase
+ end
+ seg s1(.in(reg1), .out1(HEX7), .out2(HEX6));
+ seg s2(.in(reg2), .out1(HEX5), .out2(HEX4));
+ seg s3(.in(reg3), .out1(HEX3), .out2(HEX2));
+ seg s4(.in(reg4), .out1(HEX1), .out2(HEX0));
+endmodule
+
+module seg(in,out1,out2);                
+ input [7:0]in;
+ output reg [6:0]out1,out2;
+  always@(*) begin
+   case(in[7:4])
+     4'b0000 : out1 = 7'b100_0000; 
+     4'b0001 : out1 = 7'b111_1001; 
+     4'b0010 : out1 = 7'b010_0100; 
+     4'b0011 : out1 = 7'b011_0000; 
+     4'b0100 : out1 = 7'b001_1001; 
+     4'b0101 : out1 = 7'b001_0010; 
+     4'b0110 : out1 = 7'b000_0011; 
+     4'b0111 : out1 = 7'b101_1000; 
+     4'b1000 : out1 = 7'b000_0000; 
+     4'b1001 : out1 = 7'b001_0000;  
+     4'b1010 : out1 = 7'b000_1000;
+     4'b1011 : out1 = 7'b000_0011;
+     4'b1100 : out1 = 7'b100_0110;
+     4'b1101 : out1 = 7'b010_0001;
+     4'b1110 : out1 = 7'b000_0110;
+     4'b1111 : out1 = 7'b000_1110;
+     default : out1 = 7'b111_1111;
+	 endcase
+	
+ 	 case(in[3:0])
+     4'b0000 : out2 = 7'b100_0000; 
+     4'b0001 : out2 = 7'b111_1001; 
+     4'b0010 : out2 = 7'b010_0100; 
+     4'b0011 : out2 = 7'b011_0000; 
+     4'b0100 : out2 = 7'b001_1001; 
+     4'b0101 : out2 = 7'b001_0010; 
+     4'b0110 : out2 = 7'b000_0011; 
+     4'b0111 : out2 = 7'b101_1000; 
+     4'b1000 : out2 = 7'b000_0000; 
+     4'b1001 : out2 = 7'b001_0000;  
+     4'b1010 : out2 = 7'b000_1000;
+     4'b1011 : out2 = 7'b000_0011;
+     4'b1100 : out2 = 7'b100_0110;
+     4'b1101 : out2 = 7'b010_0001;
+     4'b1110 : out2 = 7'b000_0110;
+     4'b1111 : out2 = 7'b000_1110;
+     default : out2 = 7'b111_1111;	
+    endcase
+  end
+endmodule 
+
+module subtractor_8bit(in1,in2,result);
+ input [7:0]in1,in2;
+ output [7:0]result;
+ wire [7:0]borrow_temp;
+
+ half_subtractor bit0(.X(in1[0]), .Y(in2[0]), .borrow(borrow_temp[0]), .result(result[0]));
+ full_subtractor bit1(.X(in1[1]), .Y(in2[1]), .B_in(borrow_temp[0]), .borrow(borrow_temp[1]), .result(result[1]));
+ full_subtractor bit2(.X(in1[2]), .Y(in2[2]), .B_in(borrow_temp[1]), .borrow(borrow_temp[2]), .result(result[2]));
+ full_subtractor bit3(.X(in1[3]), .Y(in2[3]), .B_in(borrow_temp[2]), .borrow(borrow_temp[3]), .result(result[3]));
+ full_subtractor bit4(.X(in1[4]), .Y(in2[4]), .B_in(borrow_temp[3]), .borrow(borrow_temp[4]), .result(result[4]));
+ full_subtractor bit5(.X(in1[5]), .Y(in2[5]), .B_in(borrow_temp[4]), .borrow(borrow_temp[5]), .result(result[5]));
+ full_subtractor bit6(.X(in1[6]), .Y(in2[6]), .B_in(borrow_temp[5]), .borrow(borrow_temp[6]), .result(result[6]));
+ full_subtractor bit7(.X(in1[7]), .Y(in2[7]), .B_in(borrow_temp[6]), .borrow(borrow_temp[7]), .result(result[7]));
+endmodule
+
+module half_subtractor(X,Y,borrow,result);
+ input X,Y;
+ output borrow,result;
+
+ assign borrow = ~X&Y;
+ assign result = X^Y;
+endmodule
+
+module full_subtractor(X,Y,B_in,borrow,result);
+ input X,Y,B_in;
+ output borrow,result;
+ wire [1:0]borrow_temp;
+ wire result_temp;
+
+ half_subtractor sub1(.X(X), .Y(Y), .borrow(borrow_temp[0]), .result(result_temp));
+ half_subtractor sub2(.X(result_temp), .Y(B_in), .borrow(borrow_temp[1]), .result(result));
+
+ assign borrow = borrow_temp[0] | borrow_temp[1];
+
+endmodule
