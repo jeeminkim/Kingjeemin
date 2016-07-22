@@ -1,0 +1,12 @@
+module project_tb();
+ reg [1:0]KEY;
+ wire [6:0]HEX7,HEX6,HEX5,HEX4,HEX3,HEX2,HEX1,HEX0;
+ 
+ project dut(.KEY(KEY), .HEX7(HEX7), .HEX6(HEX6), .HEX5(HEX5), .HEX4(HEX4), .HEX3(HEX3), .HEX2(HEX2), .HEX1(HEX1), .HEX0(HEX0));
+ 
+ initial begin KEY[0] = 0; KEY[1] = 1; end
+ always #5 KEY[0] = ~KEY[0];
+ initial #100	 KEY[1]=0;
+ initial #102   KEY[1]=1;
+ initial #10000 $stop;
+endmodule
