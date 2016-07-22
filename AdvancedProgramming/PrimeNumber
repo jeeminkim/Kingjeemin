@@ -1,0 +1,32 @@
+#include <stdio.h>
+#include <stdlib.h> //malloc 함수를 쓰기위한 헤더파일 선언
+#include <math.h> // sqrt 를 사용하기 위한 헤더파일 선언
+
+int main(void)
+{
+	int num, i, j;
+	float root_num;
+	int *prime_number;
+
+	printf("N까지의 소수,N의값은:");
+	scanf("%d", &num);                        // num값 입력 받기
+	printf("소수출력: %d\n", num);
+	prime_number = (int *)malloc(sizeof(int)*(num + 1));      // num+1개 배열 동적할당
+
+	for (i = 0; i < num + 1; i++)               // 동적할당으로 생성한 prime_number안에 인자들을 넣어주기
+		prime_number[i] = 1;
+
+	root_num = sqrt(num);                     // num의 루트 값 변수 선언
+
+	for (i = 2; i <= root_num; i++)               // 2부터 num의 root까지 i값 증가
+		for (j = i + 1; j < num + 1; j++)            // i을 제외한 다음숫자부터 배열 전체를 순회
+			if (j%i == 0)                     // i의 배수를 찾음
+				prime_number[j] = 0;                     // 소수가 아닌 수
+
+	for (i = 2; i < num + 1; i++)               // 2부터(소수의범위) 사용자가 입력해 준 num의 범위까지
+		if (prime_number[i] == 1)                     // 배열의 값이 소수이면
+			printf("%d\n", i);                  // 소수 값은 출력
+
+	free(prime_number);                              // 동적할당 초기화
+	return 0; //정상종료.
+}
