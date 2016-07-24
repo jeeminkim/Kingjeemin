@@ -1,0 +1,128 @@
+module fsm(
+ input [1:0]KEY,
+ output [6:0]HEX5,HEX4,HEX3,HEX2,HEX1,HEX0
+ );
+ wire [4:0]address;                                // 주소값 변수 
+ wire sel_mem;                                     // mema, memb를 선택하기 위한 변수 
+ wire [5:0]wen;                                    // memory로부터 받은 값을 register 처리하기 위한 enable 변수 
+ wire [7:0]data_out,dataA_out,dataB_out;           // dataA_out, dataB_out : mema, memb로부터의 출력값. data_out은 실제 출력할 값
+ wire [7:0]DATA_OUT0,DATA_OUT1,DATA_OUT2,DATA_OUT3,DATA_OUT4,DATA_OUT5; // D-flipflop을 거치는 6개의 output값
+ 
+ FSM c1(.clk(KEY[0]), .reset(KEY[1]), .address(address), .sel_mem(sel_mem), .wen(wen)); 
+
+ mema mem1(.address(address), .clock(KEY[0]), .data(1'b0), .wren(1'b0), .q(dataA_out));  // mema의 출력값 dataA_out
+ memb mem2(.address(address), .clock(KEY[0]), .data(1'b0), .wren(1'b0), .q(dataB_out));  // memb의 출력값 dataB_out
+ 
+ mux_2to1 mux1(.in1(dataA_out), .in2(dataB_out), .sel(sel_mem), .out(data_out));   // dataA와 dataB중 실제 출력값을 뽑기위한 mux
+ 
+ flipflop_en f1(.wen(wen[5]),.clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT5));  // en, reset이 추가된 D-flipflop
+ seg s1 (.in(DATA_OUT5), .out(HEX0)); 
+ flipflop_en f2(.wen(wen[4]),.clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT4));
+ seg s2 (.in(DATA_OUT4), .out(HEX1));
+ flipflop_en f3(.wen(wen[3]),.clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT3));
+ seg s3 (.in(DATA_OUT3), .out(HEX2));
+ flipflop_en f4(.wen(wen[2]),.clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT2));
+ seg s4 (.in(DATA_OUT2), .out(HEX3));
+ flipflop_en f5(.wen(wen[1]), .clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT1));
+ seg s5 (.in(DATA_OUT1), .out(HEX4));
+ flipflop_en f6(.wen(wen[0]), .clk(KEY[0]), .reset(KEY[1]), .data_in(data_out), .data_out(DATA_OUT0));
+ seg s6 (.in(DATA_OUT0), .out(HEX5));
+
+endmodule
+
+module FSM(         // FSM 모듈
+ input clk,reset,
+ output reg [4:0]address,          // memory의 주소값 변수
+ output reg sel_mem,               // mema, memb를 선택하기 위한 변수 
+ output reg [5:0]wen               // memory로부터 받은 값을 register 처리하기 위한 enable 변수   
+);   
+reg [2:0]cs; //current state
+reg [2:0]ns; //next state
+initial begin
+cs=3'b000;
+ns=3'b000;
+end      
+always@(negedge clk or negedge reset)
+begin
+case(cs) //diagram 생성
+3'b000: ns<=3'b001;
+3'b001: ns<=3'b010;
+3'b010: ns<=3'b100;
+3'b100: ns<=3'b101;
+3'b101: ns<=3'b110;
+3'b110: ns<=3'b111;
+3'b111: ns<=3'b000;
+endcase
+end
+always @(negedge clk or negedge reset)
+if(!reset)
+begin
+wen<=6'b000000;
+cs<=3'b000;
+end
+else
+
+begin
+case(cs)
+3'b000: begin wen<=6'b000001; address<=5'b01100; sel_mem<=0; end    // en을 한 비트씩 미뤄 주어 clock당 각각 하나의 값이 나옴
+3'b001: begin wen<=6'b000010; address<=5'b01111; sel_mem<=1; end
+3'b010: begin wen<=6'b000100; address<=5'b01111; sel_mem<=0; end
+3'b100: begin wen<=6'b001000; address<=5'b00000; sel_mem<=1; end
+3'b101: begin wen<=6'b010000; address<=5'b01110; sel_mem<=0; end
+3'b110: begin wen<=6'b100000; address<=5'b00001; sel_mem<=1; end
+3'b111: begin wen<=6'b111111; address<=5'b00000; sel_mem<=0; end
+endcase
+cs<=ns;
+end      
+endmodule
+
+
+module seg(                 // segment 모듈
+ input [7:0]in,
+ output reg [6:0]out
+);
+ always@(*) begin
+  case(in)
+  7'b000_0000 : out = 7'b 100_0000; //0
+  7'b000_0001 : out = 7'b 111_1001; //1
+  7'b000_0010 : out = 7'b 010_0100; //2
+  7'b000_0011 : out = 7'b 011_0000; //3
+  7'b000_0100 : out = 7'b 001_1001; //4
+  7'b000_0101 : out = 7'b 001_0010; //5
+  7'b000_0110 : out = 7'b 000_0011; //6
+  7'b000_0111 : out = 7'b 101_1000; //7
+  7'b000_1000 : out = 7'b 000_0000; //8
+  7'b000_1001 : out = 7'b 001_0000; //9
+  7'b000_1010 : out = 7'b 000_1000; //A
+  7'b000_1011 : out = 7'b 000_0011; //B
+  7'b000_1100 : out = 7'b 100_0110; //C
+  7'b000_1101 : out = 7'b 010_0001; //D
+  7'b000_1110 : out = 7'b 000_0110; //E
+  7'b000_1111 : out = 7'b 000_1110; //F
+  default : out = 7'b111_1111;
+  endcase
+  end
+endmodule
+
+module flipflop_en(       // en, reset 기능이 포함된 D_flipflop 모듈
+ input wen,clk,reset,
+ input [7:0]data_in,
+ output reg[7:0]data_out
+);
+ always@(negedge clk or negedge reset) begin
+  if(!reset)                                        // reset시 flipflop의 출력값을 0으로  
+     data_out = 8'b0000_0000;
+  else if(wen)                                      // reset이 아닌경우 입력값을 출력값으로
+     data_out = data_in;
+  end
+  
+endmodule
+ 
+module mux_2to1(                   // 삼항연산자를 이용한 2:1 mux 모듈
+ input [7:0]in1,in2,
+ input sel,
+ output [7:0]out
+);
+ assign out = (sel)? in2 : in1; 
+ 
+endmodule
