@@ -1,1 +1,1 @@
-# Controll DE2-70 Board with VERILOG
+# Controll DE2-70(ALTERA) Board with VERILOG
